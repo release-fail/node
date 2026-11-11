@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$HOME/release-fail-node"
+REPO_DIR="$HOME/node"
 BRANCH="${1:-main}"   # optionally allow: ./pull_code.sh main
 
 cd "$REPO_DIR"
