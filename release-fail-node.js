@@ -6,9 +6,9 @@ import axios from "axios";
 import { WebPubSubClient } from "@azure/web-pubsub-client";
 import { exec } from "node:child_process";
 
-//let BACKEND_BASE_URL = "http://127.0.0.1:3000/";
+//let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
 let BACKEND_BASE_URL = "https://test.release.fail/";
-let PLATFORM = "release.fail";
+let TENANT = "localcart.io";
 let DEVICE_KEY = process.env.DEVICE_KEY;
 let HEARTBEAT = false;
 let GROUP = null;
@@ -62,7 +62,7 @@ async function negotiate() {
     deviceKey: DEVICE_KEY,
     localIp,
     username: userInfo().username,
-    platform: PLATFORM,
+    tenant: TENANT,
   });
   return r.data;
 }
@@ -80,26 +80,30 @@ async function heartbeat(client) {
   }
 }
 
-async function sendHeartbeat() {
+async function sendHeartbeat(type) {
   try {
-    await api.post("/api/node/heartbeat", { deviceKey: DEVICE_KEY });
+    await api.post("/api/node/heartbeat", { type, deviceKey: DEVICE_KEY });
   } catch (error) {
     log("API heartbeat failed:", error.message);
   }
 }
 
 async function action(actionId) {
-  let result = await api.post("/api/node/action", {
+  let result = await api.post("/api/node/action/acknowledge", {
     deviceKey: DEVICE_KEY,
     actionId: actionId,
   });
-  let command = result.data;
+  if (result.data.status === false) {
+    log("Action timed out before acknowledgement:", actionId);
+    return;
+  }
+
+  let command = result.data.command;
   log("Executing command:", command);
 
   exec(command, async (error, stdout, stderr) => {
     if (error) {
       log("Execution error:", error.message);
-      return;
     }
 
     if (stderr) {
@@ -108,15 +112,24 @@ async function action(actionId) {
 
     log("Command output:", stdout);
 
-    result = await api.post("/api/node/action/executed", {
-      deviceKey: DEVICE_KEY,
-      actionId: actionId,
-      result: stdout,
-    });
+    try {
+      const confirmation = await api.post("/api/node/action/confirmed", {
+        deviceKey: DEVICE_KEY,
+        actionId: actionId,
+        status: !error,
+        result: error ? stderr || error.message : stdout,
+      });
 
-    console.log(result.data);
+      //console.log(confirmation.data);
+    } catch (confirmationError) {
+      log("Action confirmation failed:", confirmationError.message);
+    }
   });
 }
+
+setInterval(() => {
+  sendHeartbeat("http");
+}, 10000);
 
 (async () => {
   log("Negotiating for access...");
@@ -129,7 +142,7 @@ async function action(actionId) {
       const code = e?.response?.status;
       const data = e?.response?.data;
       log("Negotiate denied: ", code);
-      //log("Negotiate response: ", JSON.stringify(data ?? e.message));
+      log("Negotiate response: ", JSON.stringify(data ?? e.message));
       await new Promise((r) => setTimeout(r, 5000));
     }
   }
@@ -169,7 +182,7 @@ async function action(actionId) {
     switch (command) {
       case "heartbeat":
         log("Heartbeat detected from " + e.message.fromUserId);
-        sendHeartbeat();
+        sendHeartbeat("messagebus");
         break;
       case "joining":
         log("Joining detected from " + e.message.fromUserId);
