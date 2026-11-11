@@ -6,8 +6,8 @@ import axios from "axios";
 import { WebPubSubClient } from "@azure/web-pubsub-client";
 import { exec } from "node:child_process";
 
-//let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
-let BACKEND_BASE_URL = "https://test.release.fail/";
+let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
+//let BACKEND_BASE_URL = "https://test.release.fail/";
 let TENANT = "localcart.io";
 let DEVICE_KEY = process.env.DEVICE_KEY;
 let HEARTBEAT = false;
@@ -129,7 +129,7 @@ async function action(actionId) {
 
 setInterval(() => {
   sendHeartbeat("http");
-}, 10000);
+}, 5000);
 
 (async () => {
   log("Negotiating for access...");
