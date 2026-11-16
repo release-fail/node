@@ -6,8 +6,8 @@ import axios from "axios";
 import { WebPubSubClient } from "@azure/web-pubsub-client";
 import { exec } from "node:child_process";
 
-let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
-//let BACKEND_BASE_URL = "https://test.release.fail/";
+//let BACKEND_BASE_URL = "http://127.0.0.1:3000/";
+let BACKEND_BASE_URL = "https://test.release.fail/";
 let TENANT = "localcart.io";
 let DEVICE_KEY = process.env.DEVICE_KEY;
 let HEARTBEAT = false;
@@ -67,6 +67,18 @@ async function negotiate() {
   return r.data;
 }
 
+async function startClient(client) {
+  while (true) {
+    try {
+      await client.start();
+      return;
+    } catch (error) {
+      log("PubSub connection failed:", error.message);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
 async function heartbeat(client) {
   HEARTBEAT = true;
   try {
@@ -89,10 +101,17 @@ async function sendHeartbeat(type) {
 }
 
 async function action(actionId) {
-  let result = await api.post("/api/node/action/acknowledge", {
-    deviceKey: DEVICE_KEY,
-    actionId: actionId,
-  });
+  let result;
+  try {
+    result = await api.post("/api/node/action/acknowledge", {
+      deviceKey: DEVICE_KEY,
+      actionId: actionId,
+    });
+  } catch (error) {
+    log("Action acknowledgement failed:", error.message);
+    return;
+  }
+
   if (result.data.status === false) {
     log("Action timed out before acknowledgement:", actionId);
     return;
@@ -160,9 +179,13 @@ setInterval(() => {
   client.on("connected", async (e) => {
     log("Connected!");
 
-    await client.joinGroup(GROUP);
-    await client.sendToGroup(GROUP, "joining", "json");
-    if (!HEARTBEAT) await heartbeat(client);
+    try {
+      await client.joinGroup(GROUP);
+      await client.sendToGroup(GROUP, "joining", "json");
+      if (!HEARTBEAT) await heartbeat(client);
+    } catch (error) {
+      log("PubSub group setup failed:", error.message);
+    }
   });
 
   client.on("disconnected", (e) => {
@@ -171,7 +194,7 @@ setInterval(() => {
 
   client.on("stopped", () => {
     log("Client stopped");
-    client.start();
+    startClient(client);
   });
 
   client.on("group-message", (e) => {
@@ -199,5 +222,5 @@ setInterval(() => {
   client.on("server-message", (e) => {
     log("Server message:", e);
   });
-  await client.start();
+  await startClient(client);
 })();
