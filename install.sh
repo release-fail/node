@@ -15,6 +15,9 @@ echo "Installing dependencies in $SCRIPT_DIR"
 cd "$SCRIPT_DIR"
 npm install
 
+sudo apt install -y python3-serial
+sudo iw dev wlan0 set power_save off
+
 # Create systemd service
 SERVICE_FILE="/etc/systemd/system/release-fail-node.service"
 
