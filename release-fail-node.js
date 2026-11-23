@@ -8,7 +8,8 @@ import { exec } from "node:child_process";
 
 //let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
 let BACKEND_BASE_URL = "https://test.release.fail/";
-let TENANT = "localcart.io";
+//let TENANT = "localcart.io";
+let TENANT = "Kreda Automaten";
 let DEVICE_KEY = process.env.DEVICE_KEY;
 let HEARTBEAT = false;
 let GROUP = null;
