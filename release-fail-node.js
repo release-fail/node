@@ -6,7 +6,7 @@ import axios from "axios";
 import { WebPubSubClient } from "@azure/web-pubsub-client";
 import { exec } from "node:child_process";
 
-//let BACKEND_BASE_URL = "http://127.0.0.1:3000/";
+//let BACKEND_BASE_URL = "http://127.0.0.1:3001/";
 let BACKEND_BASE_URL = "https://test.release.fail/";
 let TENANT = "localcart.io";
 let DEVICE_KEY = process.env.DEVICE_KEY;
@@ -50,6 +50,28 @@ function log(first_message, second_message = null, third_message = null) {
     third_message ? " " + third_message : "",
   );
 }
+
+api.interceptors.response.use(undefined, (error) => {
+  const config = error.config ?? {};
+  const payload =
+    typeof config.data === "string"
+      ? config.data
+      : JSON.stringify(config.data ?? null);
+  const response = error.response
+    ? typeof error.response.data === "string"
+      ? error.response.data
+      : JSON.stringify(error.response.data ?? null)
+    : "No response received";
+
+  log(
+    "API request failed:",
+    `${(config.method ?? "unknown").toUpperCase()} ${api.getUri(config)}`,
+    `Payload: ${payload} | Error: ${error.message}` +
+      ` | Status: ${error.response?.status ?? "none"} | Response: ${response}`,
+  );
+
+  return Promise.reject(error);
+});
 
 async function negotiate() {
   const localIp =
